@@ -21,10 +21,10 @@ module mul_pipe( clk, reset, mode, X1, Y1, X2, Y2, X3, Y3, X4, Y4, out1, out2, o
 	mul_all m3( clk, reset, mode, X3, Y3, reg_out3, reg_exp3, reg_s3, sum3);
 	mul_all m4( clk, reset, mode, X4, Y4, reg_out4, reg_exp4, reg_s4, sum4);
 	reg3 reg3( clk, reset, reg_out1, reg_out2, reg_out3, reg_out4, reg_exp1, reg_exp2, reg_exp3, reg_exp4, reg_s1, reg_s2, reg_s3, reg_s4, out1, out2, out3, out4, exp1, exp2, exp3, exp4,  s1, s2, s3, s4);
-	add1 a1(  out1, out2, exp1, exp2, s1, s2, s12, exp12, out12);
-	add1 a2(  out3, out4, exp3, exp4, s3, s4, s34, exp34, out34);
+	add1 a1(  clk, reset,out1, out2, exp1, exp2, s1, s2, s12, exp12, out12);
+	add1 a2(  clk, reset,out3, out4, exp3, exp4, s3, s4, s34, exp34, out34);
 	reg4 reg4( clk, reset, out12, out34, exp12, exp34, s12, s34, out12_reg, out34_reg, exp12_reg, exp34_reg, s12_reg, s34_reg);
-	add1 a3(  out12, out34, exp12, exp34, s12, s34, s, exp, out);
+	add1 a3(  clk, reset, out12_reg, out34_reg, exp12_reg, exp34_reg, s12_reg, s34_reg, s, exp, out);
 	assign ans = (mode)?	{s,exp,out[45:23]} : {16'b0,s,exp[4:0],out[45:36]};
 endmodule
 
@@ -189,18 +189,23 @@ module mul1( x, y, mul);
 	assign mul = x * y;
 endmodule
 
-module add1(  a, b, a_exp, b_exp, s_a, s_b, s_out, out_exp, out);
+module add1( clk, reset, a, b, a_exp, b_exp, s_a, s_b, s_out, out_exp, out);
+	input clk,reset;
 	input [47:0] a, b;
 	input [7:0] a_exp, b_exp;
 	input s_a, s_b;
-	output reg s_out;
+	output  s_out;
 	output reg [47:0] out;
 	output reg [7:0] out_exp;
-	wire [48:0] a_ext, b_ext, a_alig, b_alig, a_com, b_com;
+	reg [48:0] a_alig,b_alig;
+	wire [48:0] a_ext, b_ext, a_alig_reg, b_alig_reg, a_com, b_com;
 	wire [7:0] exp, dis;
-	wire [49:0] add;
-	reg [47:0] addcom, addcom_shift;
-	reg [7:0] exp1;
+	wire [49:0] add_reg;
+	reg [49:0] add;
+	wire [47:0] addcom;
+	wire [47:0] addcom_reg;
+	reg [47:0] addcom_shift,addcom_shift_reg;
+	reg [7:0] exp1,exp1_reg;
 	reg [5:0] zero_cnt;
 	reg con;
 	integer i;
@@ -208,15 +213,32 @@ module add1(  a, b, a_exp, b_exp, s_a, s_b, s_out, out_exp, out);
 	assign dis = ( a_exp > b_exp)? a_exp - b_exp : b_exp - a_exp;
 	assign a_ext = {1'b0, a};
 	assign b_ext = {1'b0, b};
-	assign a_alig = (a_exp > b_exp)? a_ext : a_ext >> dis;
-	assign b_alig = (a_exp > b_exp)? b_ext >> dis : b_ext;
+	assign a_alig_reg = (a_exp > b_exp)? a_ext : a_ext >> dis;
+	assign b_alig_reg = (a_exp > b_exp)? b_ext >> dis : b_ext;
 	assign a_com = (s_a)? ~(a_alig) + 1 : a_alig;
 	assign b_com = (s_b)? ~(b_alig) + 1 : b_alig;
-	assign add = a_com + b_com;
-	
+	assign add_reg = a_com + b_com;
+	assign s_out = add[48];
+	assign addcom = (add[48])? ~(add[47:0]) + 1 : add[47:0];
+	always@(posedge clk)begin
+		if(reset)begin
+			a_alig <= 0;
+			b_alig <= 0;
+		end
+		else begin
+			a_alig <= a_alig_reg;
+			b_alig <= b_alig_reg;
+		end
+	end
+	always@(posedge clk)begin
+		if(reset)begin
+			add <= 0;
+		end
+		else begin
+			add <= add_reg;
+		end
+	end
 	always@(*)begin
-		s_out = add[48];
-		addcom = (add[48])? ~(add[47:0]) + 1 : add[47:0];
 		if (addcom[47] == 1)begin
 			addcom_shift = addcom >> 1;
 			exp1 = exp + 1;
