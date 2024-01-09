@@ -12,9 +12,9 @@ module mul_pipe( clk, reset, mode, X1, Y1, X2, Y2, X3, Y3, X4, Y4, out1, out2, o
 	wire s12, s34, s;
 	wire [7:0] exp12, exp34, exp;
 	wire [47:0] out12, out34, out;
-	wire [47:0] reg_out1, reg_out2, reg_out3, reg_out4;
-	wire [7:0]  reg_exp1, reg_exp2, reg_exp3, reg_exp4;
-	wire reg_s1, reg_s2, reg_s3, reg_s4;
+	wire [47:0] reg_out1, reg_out2, reg_out3, reg_out4, out12_reg, out34_reg;
+	wire [7:0]  reg_exp1, reg_exp2, reg_exp3, reg_exp4, exp12_reg, exp34_reg;
+	wire reg_s1, reg_s2, reg_s3, reg_s4, s12_reg, s34_reg;
 	
 	mul_all m1( clk, reset, mode, X1, Y1, reg_out1, reg_exp1, reg_s1, sum1);
 	mul_all m2( clk, reset, mode, X2, Y2, reg_out2, reg_exp2, reg_s2, sum2);
@@ -23,10 +23,38 @@ module mul_pipe( clk, reset, mode, X1, Y1, X2, Y2, X3, Y3, X4, Y4, out1, out2, o
 	reg3 reg3( clk, reset, reg_out1, reg_out2, reg_out3, reg_out4, reg_exp1, reg_exp2, reg_exp3, reg_exp4, reg_s1, reg_s2, reg_s3, reg_s4, out1, out2, out3, out4, exp1, exp2, exp3, exp4,  s1, s2, s3, s4);
 	add1 a1(  out1, out2, exp1, exp2, s1, s2, s12, exp12, out12);
 	add1 a2(  out3, out4, exp3, exp4, s3, s4, s34, exp34, out34);
+	reg4 reg4( clk, reset, out12, out34, exp12, exp34, s12, s34, out12_reg, out34_reg, exp12_reg, exp34_reg, s12_reg, s34_reg);
 	add1 a3(  out12, out34, exp12, exp34, s12, s34, s, exp, out);
 	assign ans = (mode)?	{s,exp,out[45:23]} : {16'b0,s,exp[4:0],out[45:36]};
 endmodule
 
+module reg4( clk, reset, out12, out34, exp12, exp34, s12, s34, out12_reg, out34_reg, exp12_reg, exp34_reg, s12_reg, s34_reg);
+	input clk, reset;
+	input [47:0] out12, out34;
+	input [7:0] exp12, exp34;
+	input s12, s34;
+	output reg [47:0] out12_reg, out34_reg;
+	output reg [7:0] exp12_reg, exp34_reg;
+	output reg s12_reg, s34_reg;
+	always@(posedge clk or posedge reset)begin
+		if(reset)begin
+			out12_reg <= 0;
+			out34_reg  <= 0;
+			exp12_reg <= 0;
+			exp34_reg <= 0;
+			s12_reg <= 0;
+			s34_reg <= 0;
+		end
+		else begin
+			out12_reg <= out12;
+			out34_reg  <=out34;
+			exp12_reg <= exp12;
+			exp34_reg <= exp34;
+			s12_reg <= s12; 
+			s34_reg <= s34; 
+		end
+	end
+endmodule
 module reg3( clk, reset, reg_out1, reg_out2, reg_out3, reg_out4, reg_exp1, reg_exp2, reg_exp3, reg_exp4, reg_s1, reg_s2, reg_s3, reg_s4, out1, out2, out3, out4, exp1, exp2, exp3, exp4,  s1, s2, s3, s4);
 	input clk, reset;
 	input [47:0] reg_out1, reg_out2, reg_out3, reg_out4;
@@ -37,32 +65,32 @@ module reg3( clk, reset, reg_out1, reg_out2, reg_out3, reg_out4, reg_exp1, reg_e
 	output reg s1, s2, s3, s4;
 	always@( posedge clk or posedge reset)begin
 		if(reset)begin
-			out1 = 0;
-			out2 = 0;
-			out3 = 0;
-			out4 = 0;
-			exp1 = 0;
-			exp2 = 0;
-			exp3 = 0;
-			exp4 = 0;
-			s1 = 0;
-			s2 = 0;
-			s3 = 0;
-			s4 = 0;
+			out1 <= 0;
+			out2 <= 0;
+			out3 <= 0;
+			out4 <= 0;
+			exp1 <= 0;
+			exp2 <= 0;
+			exp3 <= 0;
+			exp4 <= 0;
+			s1 <= 0;
+			s2 <= 0;
+			s3 <= 0;
+			s4 <= 0;
 		end
 		else begin
-			out1 = reg_out1;
-			out2 = reg_out2;
-			out3 = reg_out3;
-			out4 = reg_out4;
-			exp1 = reg_exp1;
-			exp2 = reg_exp2;
-			exp3 = reg_exp3;
-			exp4 = reg_exp4;
-			s1 = reg_s1;
-			s2 = reg_s2;
-			s3 = reg_s3;
-			s4 = reg_s4;
+			out1 <= reg_out1;
+			out2 <= reg_out2;
+			out3 <= reg_out3;
+			out4 <= reg_out4;
+			exp1 <= reg_exp1;
+			exp2 <= reg_exp2;
+			exp3 <= reg_exp3;
+			exp4 <= reg_exp4;
+			s1 <= reg_s1;
+			s2 <= reg_s2;
+			s3 <= reg_s3;
+			s4 <= reg_s4;
 		end
 	end
 	
@@ -117,16 +145,16 @@ module reg2( clk, reset, mode, x_ext1, x_ext2, y_ext1, y_ext2, x_ext1_reg, x_ext
 	assign gclk = clk & mode;
 	always@(posedge gclk or posedge reset)begin
 		if(reset)begin
-			x_ext1_reg = 0;
-			x_ext2_reg = 0;
-			y_ext1_reg = 0;
-			y_ext2_reg = 0;
+			x_ext1_reg <= 0;
+			x_ext2_reg <= 0;
+			y_ext1_reg <= 0;
+			y_ext2_reg <= 0;
 		end
 		else begin
-			x_ext1_reg = x_ext1;
-			x_ext2_reg = x_ext2;
-			y_ext1_reg = y_ext1;
-			y_ext2_reg = y_ext2;
+			x_ext1_reg <= x_ext1;
+			x_ext2_reg <= x_ext2;
+			y_ext1_reg <= y_ext1;
+			y_ext2_reg <= y_ext2;
 		end
 	end
 endmodule
